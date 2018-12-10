@@ -1,3 +1,4 @@
+import os
 from collections import defaultdict
 from .string_distance import StringDistance
 
@@ -5,7 +6,16 @@ class AddressCorrection:
     '''
     Address correction with phrase compare
     '''
-    def __init__(self, cost_dict_path, provinces_path, districts_path, wards_path):
+    def __init__(self, cost_dict_path=None, provinces_path=None, districts_path=None, wards_path=None):
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        if cost_dict_path is None:
+            cost_dict_path = os.path.join(dir_path, 'data', 'cost_char_dict.txt')
+        if provinces_path is None:
+            provinces_path = os.path.join(dir_path, 'data', 'provinces.txt')
+        if districts_path is None:
+            districts_path = os.path.join(dir_path, 'data', 'districts.txt')
+        if wards_path is None:
+            wards_path = os.path.join(dir_path, 'data', 'wards.txt')
         self.string_distance = StringDistance(cost_dict_path=cost_dict_path)
         self.provinces = []
         self.districts = defaultdict(list)
@@ -78,14 +88,16 @@ class AddressCorrection:
                     distance = None
                     if wards_index < 1:
                         return new_wards_index, prefix_wards, distance
-                    d = self.string_distance.distance(tokens[wards_index - 1], 'xã')
-                    if d < 2:
+                    if tokens[wards_index - 1] == 'p':
+                        prefix_wards = 'p'
+                        new_wards_index = wards_index - 1
+                        return new_wards_index, prefix_wards, distance
+                    if tokens[wards_index - 1] == 'xã':
                         prefix_wards = 'xã'
                         new_wards_index = wards_index - 1
-                        distance = d + new_distance
                         return new_wards_index, prefix_wards, distance
                     d = self.string_distance.distance(tokens[wards_index - 1], 'phường')
-                    if d < 2:
+                    if d < 1:
                         prefix_wards = 'phường'
                         new_wards_index = wards_index - 1
                         distance = d + new_distance
@@ -98,7 +110,7 @@ class AddressCorrection:
                         return new_wards_index, prefix_wards, distance
                     if wards_index < 2:
                         return new_wards_index, prefix_wards, distance
-                    d = self.string_distance.distance(tokens[wards_index - 2:wards_index], 'thị trấn')
+                    d = self.string_distance.distance(' '.join(tokens[wards_index - 2:wards_index]), 'thị trấn')
                     if d <= 2:
                         prefix_wards = 'thị trấn'
                         new_wards_index = wards_index - 2
@@ -150,19 +162,19 @@ class AddressCorrection:
                         if district_index <= 0:
                             return new_district_index, prefix_district, distance
                         d = self.string_distance.distance(tokens[district_index - 1], 'huyện')
-                        if d < 2:
+                        if d <= 2:
                             prefix_district = 'huyện'
                             new_district_index = district_index - 1
                             distance = d + new_distance
                             return new_district_index, prefix_district, distance
                         d = self.string_distance.distance(tokens[district_index - 1], 'tp')
-                        if d < 2:
+                        if d <= 1:
                             prefix_district = 'tp'
                             new_district_index = district_index - 1
                             distance = d + new_distance
                             return new_district_index, prefix_district, distance
                         d = self.string_distance.distance(tokens[district_index - 1], 'thành phố')
-                        if d < 2:
+                        if d <= 2:
                             prefix_district = 'thành phố'
                             new_district_index = district_index - 1
                             distance = d + new_distance
@@ -251,11 +263,21 @@ class AddressCorrection:
                         result = province
         return result, result_distance
 
-    def address_correction(self, address):
+    def address_correction(self, address, correct_th=5):
         '''
         Address should be in format: Ngõ ngách... đường... quận/huyện...tỉnh/thành phố
         and only contain characters
+        Return: (corrected_address: str, distance: float)
+            corrected_address: address after corrected. In case address can't corrected, return
+            input address
+            distance: distance between corrected address and input address. In case address
+            can't correct, return -1
         '''
+        if not isinstance(address, str):
+            raise ValueError('Address must be a string')
         tokens = address.split()
         result, distance_result = self._province_correction(tokens)
-        return result, distance_result
+        if distance_result <= correct_th:
+            return result, distance_result
+        else:
+            return address, -1
