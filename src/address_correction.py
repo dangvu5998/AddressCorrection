@@ -25,21 +25,27 @@ class AddressCorrection:
                 entity = line.strip()
                 if not entity:
                     break
-                self.provinces.append(entity)
+                entity = entity.split('|')
+                self.provinces.extend(entity)
+
         with open(districts_path) as f:
             for line in f:
                 entity = line.strip()
-                districts, province = entity.split('\t')
+                districts, provinces = entity.split('\t')
                 districts = districts.split('|')
-                self.districts[province].extend(districts)
+                provinces = provinces.split('|')
+                for province in provinces:
+                    self.districts[province].extend(districts)
         with open(wards_path) as f:
             for line in f:
                 entity = line.strip()
-                wards, districts, province = entity.split('\t')
+                wards, districts, provinces = entity.split('\t')
                 districts = districts.split('|')
                 wards = wards.split('|')
-                for district in districts:
-                    self.wards[(province, district)].extend(wards)
+                provinces = provinces.split('|')
+                for province in provinces:
+                    for district in districts:
+                        self.wards[(province, district)].extend(wards)
 
     def provinces_correction(self, phrase, nb_candidates=3):
         '''
@@ -94,6 +100,10 @@ class AddressCorrection:
                         return new_wards_index, prefix_wards, distance
                     if tokens[wards_index - 1] == 'xã':
                         prefix_wards = 'xã'
+                        new_wards_index = wards_index - 1
+                        return new_wards_index, prefix_wards, distance
+                    if tokens[wards_index - 1] == 'tt':
+                        prefix_wards = 'tt'
                         new_wards_index = wards_index - 1
                         return new_wards_index, prefix_wards, distance
                     d = self.string_distance.distance(tokens[wards_index - 1], 'phường')
